@@ -141,7 +141,7 @@ Lock Calendar
 <label class="text-lg font-semibold text-gray-700">Your Name:</label>
 <input type="text" id="clientName" placeholder="Enter your name"
 class="px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-lg">
-<button onclick="setClientName()"
+<button id="setNameBtn"
 class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors">
 Set Name
 </button>
@@ -149,15 +149,15 @@ Set Name
 <div class="flex flex-col sm:flex-row gap-4 items-center justify-center">
 <label class="text-lg font-semibold text-gray-700">Timezone:</label>
 <div class="flex gap-2">
-<button id="pstBtn" onclick="setTimezone('PST')"
+<button id="pstBtn"
 class="px-4 py-2 border-2 rounded-lg font-semibold transition-colors bg-blue-600 border-blue-600 text-white">
 PST
 </button>
-<button id="cstBtn" onclick="setTimezone('CST')"
+<button id="cstBtn"
 class="px-4 py-2 border-2 rounded-lg font-semibold transition-colors bg-gray-200 border-gray-300 text-gray-700 hover:bg-gray-300">
 CST
 </button>
-<button id="estBtn" onclick="setTimezone('EST')"
+<button id="estBtn"
 class="px-4 py-2 border-2 rounded-lg font-semibold transition-colors bg-gray-200 border-gray-300 text-gray-700 hover:bg-gray-300">
 EST
 </button>
@@ -169,12 +169,12 @@ EST
 <!-- Calendar -->
 <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
 <div class="flex justify-between items-center mb-6">
-<button onclick="previousMonth()"
+<button id="prevMonthBtn"
 class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg font-semibold transition-colors">
 ← Previous
 </button>
 <h2 id="monthYear" class="text-2xl font-bold text-gray-800"></h2>
-<button onclick="nextMonth()"
+<button id="nextMonthBtn"
 class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg font-semibold transition-colors">
 Next →
 </button>
@@ -973,6 +973,33 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   if (closeModalXButton) {
       closeModalXButton.addEventListener('click', closeTimeModal);
+  }
+
+  // Add event listeners for client name, timezone, and calendar navigation
+  const setNameButton = document.getElementById('setNameBtn');
+  const pstButton = document.getElementById('pstBtn');
+  const cstButton = document.getElementById('cstBtn');
+  const estButton = document.getElementById('estBtn');
+  const prevMonthButton = document.getElementById('prevMonthBtn');
+  const nextMonthButton = document.getElementById('nextMonthBtn');
+
+  if (setNameButton) {
+    setNameButton.addEventListener('click', setClientName);
+  }
+  if (pstButton) {
+    pstButton.addEventListener('click', () => setTimezone('PST'));
+  }
+  if (cstButton) {
+    cstButton.addEventListener('click', () => setTimezone('CST'));
+  }
+  if (estButton) {
+    estButton.addEventListener('click', () => setTimezone('EST'));
+  }
+  if (prevMonthButton) {
+    prevMonthButton.addEventListener('click', previousMonth);
+  }
+  if (nextMonthButton) {
+    nextMonthButton.addEventListener('click', nextMonth);
   }
 
 });
