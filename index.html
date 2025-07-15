@@ -266,8 +266,27 @@ Cancel
 </div>
 </div>
 
-<script>
-let currentDate = new Date();
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  // Your web app's Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyAYQOa7O99rNerbM7j-ud9YBcOyj75acn4",
+    authDomain: "group-meeting-scheduler.firebaseapp.com",
+    projectId: "group-meeting-scheduler",
+    storageBucket: "group-meeting-scheduler.firebasestorage.app",
+    messagingSenderId: "480029247223",
+    appId: "1:480029247223:web:67ccd1d7a33282b4b635f2"
+  };
+
+  // Initialize Firebase and Firestore
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const schedulerDocRef = doc(db, "scheduler", "data");
+
+ let currentDate = new Date();
 let currentClient = '';
 let votes = {}; // Structure: { "2024-01-15": { "09:00": ["Alice", "Bob"], "14:00": ["Alice"] }, ... }
 let selectedDate = null;
@@ -275,6 +294,20 @@ let currentTimezone = 'PST';
 let adminMode = false;
 let adminAvailability = {}; // Structure: { "2024-01-15": ["09:00", "14:00"], ... }
 let calendarLocked = false;
+
+async function updateDatabase() {
+  try {
+    await setDoc(schedulerDocRef, {
+      votes: votes,
+      adminAvailability: adminAvailability,
+      calendarLocked: calendarLocked
+    });
+    console.log("Database updated successfully!");
+  } catch (error) {
+    console.error("Error updating database: ", error);
+    alert("Could not save changes to the server. Please check your connection and try again.");
+  }
+}
 
 // Time slots in 24-hour format for internal use
 let baseTimeSlots = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
@@ -660,12 +693,13 @@ ${voteCount > 0 ? `<div class="text-xs mt-1">${voteCount} vote${voteCount !== 1 
 }
 }
 
-function saveTimeVotes() {
+async function saveTimeVotes() {
 // Clean up empty date entries
 if (votes[selectedDate] && Object.keys(votes[selectedDate]).length === 0) {
 delete votes[selectedDate];
 }
 
+await updateDatabase();
 closeTimeModal();
 generateCalendar();
 updateColorLegend();
@@ -804,24 +838,26 @@ generateCalendar();
 updateColorLegend();
 }
 
-function handleClearAvailability() {
+async function handleClearAvailability() {
 if (confirm('⚠️ CLEAR ALL AVAILABILITY\n\nThis will permanently remove all of Steven\'s available time slots. Clients will no longer be able to vote for any dates.\n\nThis action cannot be undone. Are you sure?')) {
 adminAvailability = {};
+await updateDatabase();
 generateCalendar();
 alert('✅ Steven\'s availability has been completely cleared.');
 }
 }
 
-function handleClearVotes() {
+async function handleClearVotes() {
 if (confirm('⚠️ CLEAR ALL CLIENT VOTES\n\nThis will permanently delete all client voting data and reset the voting summary.\n\nThis action cannot be undone. Are you sure?')) {
 votes = {};
+await updateDatabase();
 generateCalendar();
 updateColorLegend();
 alert('✅ All client votes have been cleared.');
 }
 }
 
-function handleToggleLock() {
+async function handleToggleLock() {
 calendarLocked = !calendarLocked;
 const lockButton = document.getElementById('lockCalendarBtn');
 const lockIcon = document.getElementById('lockIcon');
@@ -841,6 +877,7 @@ lockIcon.textContent = '🔓';
 lockDescription.textContent = 'Allow client voting';
 lockedMessage.classList.add('hidden');
 }
+await updateDatabase();
 }
 
 function previousMonth() {
@@ -861,37 +898,70 @@ toggleAdminMode();
 }
 });
 
-// Initialize and set up event listeners
-document.addEventListener('DOMContentLoaded', function() {
-    generateCalendar();
-
-    // Use event delegation for all admin panel actions
-    const adminPanel = document.getElementById('adminPanel');
-    if (adminPanel) {
-        adminPanel.addEventListener('click', function(event) {
-            // Find the button that was clicked, even if the user clicked an icon inside it
-            const button = event.target.closest('button');
-            if (!button) return; // Exit if the click wasn't on a button
-
-            // Check the ID of the clicked button and call the correct function
-            switch (button.id) {
-                case 'exitAdminBtn':
-                    exitAdminMode();
-                    break;
-                case 'clearAvailBtn':
-                    handleClearAvailability();
-                    break;
-                case 'clearVotesBtn':
-                    handleClearVotes();
-                    break;
-                case 'lockCalendarBtn':
-                    handleToggleLock();
-                    break;
-            }
-        });
+// NEW ASYNCHRONOUS LISTENER TO LOAD DATA
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const docSnap = await getDoc(schedulerDocRef);
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      // Load data from Firestore into your local variables
+      votes = data.votes || {};
+      adminAvailability = data.adminAvailability || {};
+      calendarLocked = data.calendarLocked || false;
+      console.log("Data loaded from Firestore.");
+    } else {
+      // This will run only if the document doesn't exist in Firestore yet.
+      console.log("No document found! Initializing a new one.");
+      await updateDatabase(); // Create the initial document in the database
     }
+  } catch (error) {
+    console.error("Error loading data from Firestore: ", error);
+    alert("Could not load schedule data. Please check your connection and refresh the page.");
+  }
+
+  // Now that data is loaded, generate the calendar and set up listeners
+  generateCalendar();
+  updateColorLegend(); // Update legend based on loaded data
+
+  // Set initial lock state from the database
+  const lockButton = document.getElementById('lockCalendarBtn');
+  const lockIcon = document.getElementById('lockIcon');
+  const lockDescription = document.getElementById('lockDescription');
+  const lockedMessage = document.getElementById('lockedMessage');
+
+  if (calendarLocked) {
+    lockButton.textContent = 'Unlock Calendar';
+    lockButton.className = 'w-full bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg font-bold transition-all';
+    lockIcon.textContent = 'üîí';
+    lockDescription.textContent = 'Calendar is locked';
+    lockedMessage.classList.remove('hidden');
+  }
+
+  // Use event delegation for all admin panel actions
+  const adminPanel = document.getElementById('adminPanel');
+  if (adminPanel) {
+      adminPanel.addEventListener('click', function(event) {
+          const button = event.target.closest('button');
+          if (!button) return;
+
+          switch (button.id) {
+              case 'exitAdminBtn':
+                  exitAdminMode();
+                  break;
+              case 'clearAvailBtn':
+                  handleClearAvailability();
+                  break;
+              case 'clearVotesBtn':
+                  handleClearVotes();
+                  break;
+              case 'lockCalendarBtn':
+                  handleToggleLock();
+                  break;
+          }
+      });
+  }
 });
 
 </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'95ed0c0ad0062b97',t:'MTc1MjQ1NDQ0OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
